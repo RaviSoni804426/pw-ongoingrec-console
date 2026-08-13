@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,9 +40,30 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardContent className="pt-6">
-          <div className="mb-6">
-            <h1 className="text-lg font-semibold">PW OngoingRec</h1>
-            <p className="text-sm text-muted-foreground">Sign in to the admin console</p>
+          <div className="mb-6 flex items-center gap-3">
+            {/* Two files, swapped by CSS rather than by reading the theme in JS:
+                the mark is monochrome, so it needs to invert with the surface
+                it sits on, and a flash of the wrong one on load looks broken. */}
+            <Image
+              src="/logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="dark:hidden"
+              priority
+            />
+            <Image
+              src="/logo-dark.png"
+              alt=""
+              width={40}
+              height={40}
+              className="hidden dark:block"
+              priority
+            />
+            <div>
+              <h1 className="text-lg font-semibold">PW OngoingRec</h1>
+              <p className="text-sm text-muted-foreground">Sign in to the admin console</p>
+            </div>
           </div>
 
           <form onSubmit={submit} className="space-y-4" noValidate>

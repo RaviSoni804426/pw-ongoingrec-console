@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -62,9 +63,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-56 shrink-0 border-r bg-card md:flex md:flex-col">
-        <div className="border-b px-4 py-4">
-          <p className="text-sm font-semibold">PW OngoingRec</p>
-          <p className="text-xs text-muted-foreground">Admin console</p>
+        <div className="flex items-center gap-2.5 border-b px-4 py-4">
+          <Image src="/logo.png" alt="" width={28} height={28} className="dark:hidden" />
+          <Image src="/logo-dark.png" alt="" width={28} height={28} className="hidden dark:block" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">PW OngoingRec</p>
+            <p className="text-xs text-muted-foreground">Admin console</p>
+          </div>
         </div>
 
         <nav className="flex-1 space-y-0.5 p-2" aria-label="Main">

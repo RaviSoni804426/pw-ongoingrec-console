@@ -4,6 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'PW OngoingRec Console',
+  icons: { icon: '/favicon.ico' },
   description: 'Fleet health, coverage and conversation review for PW counselling centres',
 };
 
