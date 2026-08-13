@@ -80,9 +80,24 @@ nothing about whether coverage is being reported truthfully. It covers:
 - playback writing an `AccessLog` row that then appears in the compliance view;
 - enrollment minting a one-time provisioning token.
 
-CI runs lint, typecheck and build, then stands up MongoDB, Redis, MinIO, the
-backend (seeded and derived) and the console, and runs Playwright against the
-whole stack.
+### CI
+
+`lint-and-build` runs on every push. The Playwright job stands up MongoDB,
+Redis, MinIO, the seeded backend and the console, and runs the suite against
+the whole stack.
+
+Because it has to check out `pw-ongoingrec-backend` — a **separate private
+repo** — it needs a token the default `GITHUB_TOKEN` cannot provide. The job is
+gated on a repository secret and is skipped (not failed) when that secret is
+absent:
+
+```bash
+# a fine-grained PAT with read access to pw-ongoingrec-backend
+gh secret set BACKEND_REPO_TOKEN --repo <owner>/pw-ongoingrec-console
+```
+
+Until that secret exists, run the suite locally — it needs the backend running
+with seeded data either way.
 
 ---
 
