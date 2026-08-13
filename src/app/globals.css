@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Coverage RAG. Deliberately not pure red/green: these are read side by
+       side in a dense grid, and the darker tones keep white text legible. */
+    --rag-good: 142 55% 38%;
+    --rag-warn: 38 92% 45%;
+    --rag-bad: 0 72% 48%;
+    --rag-none: 215 16% 75%;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 222 47% 8%;
+      --foreground: 210 40% 96%;
+      --card: 222 44% 11%;
+      --card-foreground: 210 40% 96%;
+      --muted: 217 33% 17%;
+      --muted-foreground: 215 20% 65%;
+      --border: 217 33% 20%;
+      --input: 217 33% 20%;
+      --ring: 213 27% 84%;
+      --primary: 210 40% 96%;
+      --primary-foreground: 222 47% 11%;
+      --destructive: 0 63% 48%;
+      --destructive-foreground: 210 40% 98%;
+
+      --rag-good: 142 50% 42%;
+      --rag-warn: 38 88% 50%;
+      --rag-bad: 0 68% 52%;
+      --rag-none: 215 20% 35%;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* The console is used on 1280px centre laptops (PRD §10.6); nothing should
+     ever push the page into horizontal scroll. */
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
