@@ -162,3 +162,18 @@ jobs:
           name: playwright-report
           path: console/playwright-report/
           retention-days: 7
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole point is scanning history, not just the tip.
+          fetch-depth: 0
+
+      - name: Scan working tree and full history for secrets
+        env:
+          PW_LEAKED_SECRET: ${{ secrets.PW_LEAKED_SECRET }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: bash .github/scripts/secret-scan.sh
