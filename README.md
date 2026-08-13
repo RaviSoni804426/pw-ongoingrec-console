@@ -80,24 +80,34 @@ nothing about whether coverage is being reported truthfully. It covers:
 - playback writing an `AccessLog` row that then appears in the compliance view;
 - enrollment minting a one-time provisioning token.
 
-### CI
+### CI, and how the end-to-end job reaches the backend
 
 `lint-and-build` runs on every push. The Playwright job stands up MongoDB,
-Redis, MinIO, the seeded backend and the console, and runs the suite against
-the whole stack.
+Redis, MinIO and the backend, then runs the suite against the whole stack.
 
-Because it has to check out `pw-ongoingrec-backend` — a **separate private
-repo** — it needs a token the default `GITHUB_TOKEN` cannot provide. The job is
-gated on a repository secret and is skipped (not failed) when that secret is
-absent:
+The backend lives in a **separate private repository**, so the job needs some
+way to reach it. Two options were on the table:
 
-```bash
-# a fine-grained PAT with read access to pw-ongoingrec-backend
-gh secret set BACKEND_REPO_TOKEN --repo <owner>/pw-ongoingrec-console
-```
+| | Approach | Verdict |
+|---|---|---|
+| (a) | A fine-grained PAT with `Contents: Read` on `pw-ongoingrec-backend`, stored as `BACKEND_REPO_TOKEN`, used by `actions/checkout` | Rejected |
+| (b) | The backend's own CI publishes a container image to GHCR; this job pulls `ghcr.io/<owner>/pw-ongoingrec-backend:main` | **Chosen** |
 
-Until that secret exists, run the suite locally — it needs the backend running
-with seeded data either way.
+**Why (b).** `GITHUB_TOKEN` can already read packages within the same account,
+so there is no cross-repo credential to create, store, or rotate — and no PAT
+expiry to silently break the suite months from now. It also means the console is
+tested against **the same artifact that would deploy**, rather than against a
+source checkout that happens to build on a runner.
+
+The cost was a Dockerfile in the backend, which is ~20 lines and was worth
+having regardless. That is the only reason (a) looked simpler at first.
+
+**The job fails red when the image is missing on `main`.** A permanently-skipping
+test is a test that does not exist. The single exception is a pull request from a
+fork, which genuinely cannot read GHCR packages; there it skips with a notice.
+
+If the backend image has never been published, push `pw-ongoingrec-backend` to
+`main` once and its CI will publish it.
 
 ---
 

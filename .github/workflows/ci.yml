@@ -25,30 +25,15 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
-  # Needs to check out pw-ongoingrec-backend, which is a separate private repo.
-  # The default GITHUB_TOKEN is scoped to this repository only, so the job is
-  # gated on a PAT with `repo` scope stored as BACKEND_REPO_TOKEN. Without it
-  # the job is skipped rather than failing red — see README, "CI".
-  check-token:
-    name: Check cross-repo access
-    runs-on: ubuntu-latest
-    outputs:
-      available: ${{ steps.probe.outputs.available }}
-    steps:
-      - id: probe
-        run: |
-          if [ -n "${{ secrets.BACKEND_REPO_TOKEN }}" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::BACKEND_REPO_TOKEN is not set — the end-to-end job is skipped. Playwright still runs locally against a seeded backend."
-          fi
-
   e2e:
-    name: Playwright (against a real backend)
+    name: Playwright (against the real backend image)
     runs-on: ubuntu-latest
-    needs: check-token
-    if: needs.check-token.outputs.available == 'true'
+
+    # GITHUB_TOKEN can read packages in the same account, so no cross-repo PAT
+    # is needed. See README, "How the end-to-end job reaches the backend".
+    permissions:
+      contents: read
+      packages: read
 
     services:
       mongo:
@@ -66,54 +51,79 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 20
 
     env:
-      # Backend
-      MONGO_URI: mongodb://localhost:27017/ongoingrec
-      REDIS_HOST: 127.0.0.1
-      REDIS_PORT: '6379'
-      S3_ENDPOINT: http://localhost:9000
-      S3_REGION: us-east-1
-      S3_ACCESS_KEY: ongoingrec
-      S3_SECRET_KEY: ongoingrec-dev-only
-      S3_FORCE_PATH_STYLE: 'true'
-      S3_BUCKET_RAW: pw-ongoingrec-raw
-      S3_BUCKET_DERIVED: pw-ongoingrec-derived
-      JWT_SECRET: ci-only-secret-not-used-anywhere-else
-      CRM_ADAPTER: mock
-      DISABLE_SCHEDULED_JOBS: 'true'
-      SEED_PASSWORD: ChangeMe-Local-Dev-1
-      # Console
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3000/api/v1
       CONSOLE_URL: http://localhost:3001
+      SEED_PASSWORD: ChangeMe-Local-Dev-1
 
     steps:
-      - name: Check out the console
-        uses: actions/checkout@v4
-        with:
-          path: console
-
-      # The suite deliberately runs against the real backend with seeded data.
-      # A console verified against mocks proves nothing about whether coverage
-      # is actually being reported.
-      - name: Check out the backend
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/pw-ongoingrec-backend
-          token: ${{ secrets.BACKEND_REPO_TOKEN }}
-          path: backend
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Install ffmpeg
+      # GHCR rejects uppercase in repository names and the account has capitals.
+      - name: Compute the backend image name
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "BACKEND_IMAGE=ghcr.io/$owner/pw-ongoingrec-backend:main" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A permanently-skipping test is a test that does not exist. On main the
+      # image must be there; only a fork PR — which genuinely cannot read GHCR
+      # packages — is allowed to skip.
+      - name: Ensure the backend image is available
+        id: image
+        run: |
+          set -uo pipefail
+          if docker pull "$BACKEND_IMAGE"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "pull_request" ] && \
+             [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "::notice::Fork pull request cannot read GHCR packages; the end-to-end job is skipped."
+            exit 0
+          fi
+
+          echo "::error::$BACKEND_IMAGE could not be pulled. Push pw-ongoingrec-backend to main so its CI publishes the image."
+          exit 1
+
+      # An env file rather than an inline string of -e flags: the latter only
+      # works if the shell word-splits it, which is a needless dependency on
+      # the runner's shell behaving like bash.
+      - name: Write the backend environment
+        if: steps.image.outputs.available == 'true'
+        run: |
+          cat > backend.env <<'ENVFILE'
+          MONGO_URI=mongodb://localhost:27017/ongoingrec
+          REDIS_HOST=127.0.0.1
+          S3_ENDPOINT=http://localhost:9000
+          S3_ACCESS_KEY=ongoingrec
+          S3_SECRET_KEY=ongoingrec-dev-only
+          S3_FORCE_PATH_STYLE=true
+          JWT_SECRET=ci-only-secret-not-used-anywhere-else
+          CRM_ADAPTER=mock
+          DISABLE_SCHEDULED_JOBS=true
+          SEED_PASSWORD=ChangeMe-Local-Dev-1
+          ENVFILE
+          sed -i 's/^[[:space:]]*//' backend.env
 
       - name: Start MinIO
+        if: steps.image.outputs.available == 'true'
         run: |
           set -euo pipefail
-          docker run -d --name minio -p 9000:9000 \
+          docker run -d --name minio --network host \
             -e MINIO_ROOT_USER=ongoingrec \
             -e MINIO_ROOT_PASSWORD=ongoingrec-dev-only \
             minio/minio:latest server /data
@@ -123,25 +133,34 @@ jobs:
           done
           echo "::error::MinIO did not become ready"; docker logs minio; exit 1
 
-      - name: Build, seed and start the backend
-        working-directory: backend
+      # --network host so the container reaches the service containers on
+      # localhost, exactly as the app expects in development.
+      - name: Seed, derive and reconcile inside the backend image
+        if: steps.image.outputs.available == 'true'
         run: |
           set -euo pipefail
-          npm ci
-          npm run build
-          npm run seed
-          npm run derive -- 7
-          npm run reconcile -- 7
-          npm run start:prod &
+          docker run --rm --network host --env-file backend.env \
+            --entrypoint node "$BACKEND_IMAGE" dist/seed/seed.js
+          docker run --rm --network host --env-file backend.env \
+            --entrypoint node "$BACKEND_IMAGE" dist/seed/derive-now.js 7
+          docker run --rm --network host --env-file backend.env \
+            --entrypoint node "$BACKEND_IMAGE" dist/seed/reconcile-now.js 7
+
+      - name: Start the backend
+        if: steps.image.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          docker run -d --name backend --network host --env-file backend.env "$BACKEND_IMAGE"
           for i in $(seq 1 60); do
             curl -sf http://localhost:3000/health >/dev/null && exit 0
             sleep 2
           done
-          echo "::error::Backend did not become ready"; exit 1
+          echo "::error::Backend did not become ready"; docker logs backend; exit 1
 
       - name: Build and start the console
-        working-directory: console
+        if: steps.image.outputs.available == 'true'
         run: |
+          set -euo pipefail
           npm ci
           npx playwright install --with-deps chromium
           npm run build
@@ -153,14 +172,18 @@ jobs:
           echo "::error::Console did not become ready"; exit 1
 
       - name: Run Playwright
-        working-directory: console
+        if: steps.image.outputs.available == 'true'
         run: npm run test:e2e
+
+      - name: Backend logs on failure
+        if: failure()
+        run: docker logs backend || true
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
-          path: console/playwright-report/
+          path: playwright-report/
           retention-days: 7
 
   secret-scan:
