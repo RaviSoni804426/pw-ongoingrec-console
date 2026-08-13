@@ -106,7 +106,20 @@ having regardless. That is the only reason (a) looked simpler at first.
 test is a test that does not exist. The single exception is a pull request from a
 fork, which genuinely cannot read GHCR packages; there it skips with a notice.
 
-If the backend image has never been published, push `pw-ongoingrec-backend` to
+**One-time setup.** A GHCR package published from one repository is not
+readable by another repository's `GITHUB_TOKEN` until access is granted. Once,
+at:
+
+```
+github.com/users/<owner>/packages/container/pw-ongoingrec-backend/settings
+  -> Manage Actions access -> Add repository -> pw-ongoingrec-console (Read)
+```
+
+The alternative is making the package public, which would expose the compiled
+backend — not appropriate for a private product. Granting read to one
+repository keeps it private and needs no rotating credential.
+
+If the image has never been published at all, push `pw-ongoingrec-backend` to
 `main` once and its CI will publish it.
 
 ---

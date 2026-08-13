@@ -96,7 +96,11 @@ jobs:
             exit 0
           fi
 
-          echo "::error::$BACKEND_IMAGE could not be pulled. Push pw-ongoingrec-backend to main so its CI publishes the image."
+          echo "::error::$BACKEND_IMAGE could not be pulled."
+          echo "::error::If the image exists, this is a one-time GHCR access grant, not a code problem:"
+          echo "::error::  github.com/users/${{ github.repository_owner }}/packages/container/pw-ongoingrec-backend/settings"
+          echo "::error::  -> Manage Actions access -> Add repository -> pw-ongoingrec-console (Read)"
+          echo "::error::If the image does not exist, push pw-ongoingrec-backend to main so its CI publishes it."
           exit 1
 
       # An env file rather than an inline string of -e flags: the latter only
