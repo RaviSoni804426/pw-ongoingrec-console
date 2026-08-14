@@ -325,3 +325,65 @@ export const refTimezone = (value: unknown): string => {
   }
   return 'Asia/Kolkata';
 };
+
+// ── transcripts (Cut B) ─────────────────────────────────────────────────────
+
+export const transcriptTurn = z.object({
+  idx: z.number(),
+  startMs: z.number(),
+  endMs: z.number(),
+  /** Anonymous diarisation label. There is deliberately no visitor identity. */
+  speakerLabel: z.string(),
+  speakerRole: z.string().optional(),
+  text: z.string(),
+  asrConfidence: z.number(),
+});
+
+export const transcriptQuality = z.object({
+  avgAsrConfidence: z.number(),
+  usableForAutoAudit: z.boolean(),
+  engine: z.string(),
+  modelVersion: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export const transcript = z.object({
+  _id: z.string(),
+  language: z.string(),
+  fullText: z.string(),
+  turns: z.array(transcriptTurn),
+  quality: transcriptQuality,
+  counsellorSpeakerLabel: z.string().optional(),
+  speakerTagSource: z.string(),
+  speakerTagConfidence: z.number(),
+  speakerTagRationale: z.string().optional(),
+  engine: z.string(),
+  modelVersion: z.string().optional(),
+  version: z.number(),
+  /** True while the counsellor tag is a guess. Drives the provisional markers. */
+  provisional: z.boolean(),
+});
+
+export const transcriptResponse = z.object({
+  status: z.string(),
+  reason: z.string().optional(),
+  transcript: transcript.nullable(),
+});
+
+export const speakerTagResult = z.object({
+  counsellorSpeakerLabel: z.string(),
+  speakerTagSource: z.string(),
+  speakerTagConfidence: z.number(),
+  provisional: z.boolean(),
+  metrics: z.object({
+    talkRatio: z.number(),
+    longestMonologueSec: z.number(),
+    deadAirSec: z.number(),
+    questionCount: z.number(),
+    wordsPerMinute: z.number(),
+    provisional: z.boolean(),
+  }),
+});
+
+export type Transcript = z.infer<typeof transcript>;
+export type TranscriptTurn = z.infer<typeof transcriptTurn>;

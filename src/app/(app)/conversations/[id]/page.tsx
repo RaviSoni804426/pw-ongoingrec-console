@@ -1,9 +1,14 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Download, Play } from 'lucide-react';
-import { ConversationPlayer, type SegmentMarker } from '@/components/conversation-player';
+import {
+  ConversationPlayer,
+  type ConversationPlayerHandle,
+  type SegmentMarker,
+} from '@/components/conversation-player';
+import { TranscriptPanel } from '@/components/transcript-panel';
 import { PageHeader } from '@/components/page-header';
 import { Timestamp } from '@/components/timestamp';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +38,18 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const waveform = useWaveformUrl(id, listening);
 
   const [peaks, setPeaks] = useState<number[] | undefined>();
+
+  // Playback position, lifted only as far as it needs to go: the transcript
+  // highlights the current turn, and clicking a turn seeks the waveform.
+  const playerRef = useRef<ConversationPlayerHandle>(null);
+  const [currentSec, setCurrentSec] = useState(0);
+
+  const seekTo = useCallback((seconds: number) => {
+    // Loading the audio is what writes the access-log row, so a transcript
+    // click cannot start playback on its own — it seeks a player that is
+    // already open, and does nothing otherwise.
+    playerRef.current?.seekTo(seconds);
+  }, []);
   const [reason, setReason] = useState('');
   const download = useDownload(id);
 
@@ -105,12 +122,23 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
 
               {stream.data ? (
                 <ConversationPlayer
+                  ref={playerRef}
                   audioUrl={stream.data.url}
                   peaks={peaks}
                   durationSec={stream.data.durationSec ?? data.durationSec}
                   markers={markers}
+                  onTimeUpdate={setCurrentSec}
                 />
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Transcript</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TranscriptPanel conversationId={id} currentSec={currentSec} onSeek={seekTo} />
             </CardContent>
           </Card>
 

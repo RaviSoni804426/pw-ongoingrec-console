@@ -204,3 +204,92 @@ test.describe('enrollment', () => {
     await expect(page.getByTestId('enroll-token')).not.toBeEmpty();
   });
 });
+
+test.describe('transcript', () => {
+  test('renders turns, marks provisional speakers, and syncs with the player', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Conversations' }).click();
+    // A different row from the one the speaker-correction test confirms, so
+    // neither test depends on the other having run — or not having run.
+    await page.getByTestId('conversation-link').nth(1).click();
+
+    await expect(page.getByTestId('transcript-panel')).toBeVisible();
+    await expect(page.getByTestId('transcript-turn').first()).toBeVisible();
+
+    // The counsellor tag is a heuristic until a person confirms it, and the
+    // screen has to say so — an auditor shown an unmarked talk ratio that may
+    // be inverted is being actively misled.
+    await expect(page.getByTestId('speaker-provisional')).toBeVisible();
+
+    // A turn the engine was unsure about is marked rather than presented as
+    // equal to the rest.
+    await expect(page.getByTestId('low-confidence').first()).toBeVisible();
+
+    // Clicking a timestamp seeks the audio. Playback has to be open first,
+    // because loading the audio is the logged access event.
+    await page.getByTestId('start-playback').click();
+    await expect(page.getByTestId('player-playpause')).toBeEnabled({ timeout: 30_000 });
+
+    const before = await page.getByTestId('player-time').innerText();
+    await page.getByTestId('transcript-seek').nth(2).click();
+    await expect(page.getByTestId('player-time')).not.toHaveText(before);
+  });
+
+  test('an auditor can confirm the counsellor in one click', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.getByTestId('conversation-link').nth(2).click();
+
+    await expect(page.getByTestId('speaker-control')).toBeVisible();
+
+    // Choose whichever speaker is not currently tagged. Asserting the
+    // heuristic-to-manual transition specifically would only pass against a
+    // freshly seeded database, and a test that needs a pristine database is a
+    // test that will waste somebody's afternoon.
+    const current = await page.getByTestId('speaker-control').innerText();
+    const target = current.includes('Speaker B confirmed') ? 'A' : 'B';
+
+    // One click. Acceptance criterion 3.
+    await page.getByTestId(`speaker-choose-${target}`).click();
+
+    await expect(page.getByTestId('speaker-confirmed')).toContainText(
+      `Speaker ${target} confirmed`,
+    );
+    await expect(page.getByTestId('speaker-provisional')).toHaveCount(0);
+
+    // And it survives a reload: the correction is stored, not local state.
+    await page.reload();
+    await expect(page.getByTestId('speaker-confirmed')).toContainText(
+      `Speaker ${target} confirmed`,
+    );
+  });
+
+  test('says when a transcript may not be scored automatically', async ({ page }) => {
+    // The seed withholds every fifth conversation from auto-audit, so at least
+    // one conversation list page must surface the closed gate.
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Conversations' }).click();
+
+    const links = page.getByTestId('conversation-link');
+    // count() does not auto-wait the way click() does, so without this it reads
+    // zero before the list has loaded and the loop silently does nothing.
+    await expect(links.first()).toBeVisible();
+    const count = Math.min(await links.count(), 6);
+
+    let sawWithheld = false;
+    for (let i = 0; i < count; i++) {
+      await links.nth(i).click();
+      await expect(page.getByTestId('transcript-quality')).toBeVisible();
+
+      if ((await page.getByTestId('transcript-quality').innerText()).includes('Not eligible')) {
+        sawWithheld = true;
+        break;
+      }
+      await page.goBack();
+    }
+
+    expect(sawWithheld, 'the seed must withhold at least one conversation from auto-audit').toBe(
+      true,
+    );
+  });
+});

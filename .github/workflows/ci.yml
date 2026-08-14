@@ -149,6 +149,10 @@ jobs:
             --entrypoint node "$BACKEND_IMAGE" dist/seed/derive-now.js 7
           docker run --rm --network host --env-file backend.env \
             --entrypoint node "$BACKEND_IMAGE" dist/seed/reconcile-now.js 7
+          # Synthetic transcripts, so the transcript panel has something real to
+          # render. Calling a paid third-party API from CI is not an option.
+          docker run --rm --network host --env-file backend.env \
+            --entrypoint node "$BACKEND_IMAGE" dist/seed/transcribe-now.js
 
       - name: Start the backend
         if: steps.image.outputs.available == 'true'

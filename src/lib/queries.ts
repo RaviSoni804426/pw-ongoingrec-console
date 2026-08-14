@@ -11,6 +11,8 @@ import {
   fleetSummary,
   installationDetail,
   installationList,
+  speakerTagResult,
+  transcriptResponse,
   legalHold,
   orgTree,
   purgeLogEntry,
@@ -233,3 +235,35 @@ export const usePurgeLog = () =>
     queryKey: ['compliance', 'purge-log'],
     queryFn: () => apiFetch('/compliance/purge-log', z.array(purgeLogEntry)),
   });
+
+// ── transcripts (Cut B) ─────────────────────────────────────────────────────
+
+export const useTranscript = (conversationId: string) =>
+  useQuery({
+    queryKey: ['conversation', conversationId, 'transcript'],
+    queryFn: () => apiFetch(`/conversations/${conversationId}/transcript`, transcriptResponse),
+    // A conversation still with the provider will have one shortly. Polling
+    // beats making an auditor reload to find out.
+    refetchInterval: (query) =>
+      query.state.data?.transcript ? false : 30_000,
+  });
+
+export const useSetSpeakerTag = (conversationId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (counsellorSpeakerLabel: string) =>
+      apiFetch(`/conversations/${conversationId}/transcript/speaker-tag`, speakerTagResult, {
+        method: 'PATCH',
+        body: { counsellorSpeakerLabel },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['conversation', conversationId, 'transcript'],
+      });
+      // The conversation's talk ratio changes with the tag, so the detail
+      // header has to be refetched too or it will contradict the transcript.
+      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+    },
+  });
+};

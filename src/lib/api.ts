@@ -52,7 +52,7 @@ export const userStore = {
 };
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Skip the bearer header (login only). */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,18 @@ import { formatClock } from '@/lib/format';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SKIP_SECONDS = 10;
+
+/**
+ * What a parent can do to the player.
+ *
+ * Exposed imperatively rather than by lifting playback state upward: the
+ * transcript needs to seek on click and highlight on tick, and re-rendering the
+ * whole waveform on every timeupdate to achieve that would be wasteful and
+ * visibly janky.
+ */
+export interface ConversationPlayerHandle {
+  seekTo: (seconds: number) => void;
+}
 
 export interface SegmentMarker {
   /** Offset from the conversation start, in seconds. */
@@ -23,19 +35,24 @@ export interface SegmentMarker {
  * — requesting it is what writes the AccessLog row (FR-M4), so this component
  * never fetches it itself.
  */
-export const ConversationPlayer = ({
-  audioUrl,
-  peaks,
-  durationSec,
-  markers = [],
-}: {
-  audioUrl: string;
-  peaks?: number[];
-  durationSec: number;
-  markers?: SegmentMarker[];
-}) => {
+export const ConversationPlayer = forwardRef<
+  ConversationPlayerHandle,
+  {
+    audioUrl: string;
+    peaks?: number[];
+    durationSec: number;
+    markers?: SegmentMarker[];
+    /** Fires on every playback tick, so a transcript can follow along. */
+    onTimeUpdate?: (seconds: number) => void;
+  }
+>(function ConversationPlayer({ audioUrl, peaks, durationSec, markers = [], onTimeUpdate }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const waveRef = useRef<WaveSurfer | null>(null);
+
+  // Held in a ref so a parent re-rendering with a new closure does not tear
+  // down and rebuild the waveform.
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  onTimeUpdateRef.current = onTimeUpdate;
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -68,7 +85,10 @@ export const ConversationPlayer = ({
     wave.on('play', () => setPlaying(true));
     wave.on('pause', () => setPlaying(false));
     wave.on('finish', () => setPlaying(false));
-    wave.on('timeupdate', (time: number) => setCurrentSec(time));
+    wave.on('timeupdate', (time: number) => {
+      setCurrentSec(time);
+      onTimeUpdateRef.current?.(time);
+    });
     wave.on('error', (err: Error) => setError(err?.message ?? 'Audio failed to load'));
 
     void wave.load(audioUrl).catch((err: unknown) => {
@@ -101,6 +121,8 @@ export const ConversationPlayer = ({
     },
     [durationSec],
   );
+
+  useImperativeHandle(ref, () => ({ seekTo }), [seekTo]);
 
   // PRD §10.6: an auditor must be able to work the player from the keyboard.
   useEffect(() => {
@@ -248,4 +270,4 @@ export const ConversationPlayer = ({
       </p>
     </div>
   );
-};
+});
