@@ -204,3 +204,9 @@ jobs:
           PW_LEAKED_SECRET: ${{ secrets.PW_LEAKED_SECRET }}
           IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
         run: bash .github/scripts/secret-scan.sh
+
+      # A gitignore that quietly excludes a source file makes CI build a
+      # different tree from the one the author is looking at. It has happened
+      # twice; both times the app worked locally and failed only here.
+      - name: Check that no source file is silently gitignored
+        run: bash .github/scripts/no-ignored-sources.sh

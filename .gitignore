@@ -28,3 +28,11 @@ build/
 .DS_Store
 .idea/
 *.swp
+
+# A global ~/.gitignore_global here carries an unanchored `coverage/`, meant for
+# test-coverage output. It also matched src/app/(app)/coverage/ — the coverage
+# screen — which was therefore never committed. CI checked out a tree without
+# that route and the page 404'd, while it worked perfectly on the machine that
+# wrote it. These negations are load-bearing; do not remove them.
+!src/app/**/coverage/
+!src/app/**/coverage/**
