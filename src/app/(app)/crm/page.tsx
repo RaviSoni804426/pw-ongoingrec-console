@@ -93,6 +93,14 @@ export default function CrmPage() {
 
         {refresh.isError ? <ErrorBlock error={refresh.error} /> : null}
 
+        {refresh.data ? (
+          <p className="text-xs text-muted-foreground" data-testid="crm-refresh-result">
+            {refresh.data.connected
+              ? `Read ${refresh.data.rows} rows from the sheet.`
+              : refresh.data.message}
+          </p>
+        ) : null}
+
         <div className="flex flex-wrap gap-1">
           {[
             { key: '' as const, label: 'All' },

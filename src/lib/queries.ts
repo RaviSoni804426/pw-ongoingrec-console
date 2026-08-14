@@ -332,9 +332,17 @@ export const useRefreshCrm = () => {
 
   return useMutation({
     mutationFn: () =>
-      apiFetch('/crm/refresh', z.object({ fetchedAt: z.string().nullable(), rows: z.number() }), {
-        method: 'POST',
-      }),
+      apiFetch(
+        '/crm/refresh',
+        z.object({
+          connected: z.boolean(),
+          adapter: z.string(),
+          fetchedAt: z.string().nullable(),
+          rows: z.number(),
+          message: z.string().optional(),
+        }),
+        { method: 'POST' },
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['crm'] });
     },
