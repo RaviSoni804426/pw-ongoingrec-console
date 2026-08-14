@@ -139,6 +139,23 @@ jobs:
 
       # --network host so the container reaches the service containers on
       # localhost, exactly as the app expects in development.
+      # The backend image is tagged :main and is published by a separate
+      # workflow, so a console commit can land before the backend image that
+      # supports it. Without this the failure is a bare MODULE_NOT_FOUND and
+      # reads like a broken script rather than a race.
+      - name: Check the backend image is new enough for this console
+        if: steps.image.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          for script in seed derive-now reconcile-now transcribe-now; do
+            if ! docker run --rm --entrypoint test "$BACKEND_IMAGE" \
+              -f "dist/seed/$script.js"; then
+              echo "::error::The backend image is missing dist/seed/$script.js."
+              echo "::error::$BACKEND_IMAGE predates this console commit. Re-run once the backend workflow has published a new :main image."
+              exit 1
+            fi
+          done
+
       - name: Seed, derive and reconcile inside the backend image
         if: steps.image.outputs.available == 'true'
         run: |
@@ -149,6 +166,15 @@ jobs:
             --entrypoint node "$BACKEND_IMAGE" dist/seed/derive-now.js 7
           docker run --rm --network host --env-file backend.env \
             --entrypoint node "$BACKEND_IMAGE" dist/seed/reconcile-now.js 7
+
+          # Deriving conversations enqueues transcription jobs, which have no
+          # provider key here and would fail — and could race the synthetic
+          # transcripts below, flipping a conversation back to FAILED after it
+          # was seeded. Dropping the queue first makes the seeded state
+          # deterministic rather than dependent on which finished last.
+          docker run --rm --network host redis:7-alpine \
+            redis-cli -h 127.0.0.1 -p 6379 FLUSHALL
+
           # Synthetic transcripts, so the transcript panel has something real to
           # render. Calling a paid third-party API from CI is not an option.
           docker run --rm --network host --env-file backend.env \
