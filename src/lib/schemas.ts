@@ -19,6 +19,13 @@ export const envelope = <T extends z.ZodTypeAny>(data: T) =>
  * there is one role.
  */
 export const roleSchema = z.enum(['ADMIN']);
+
+/** Which sign-in methods the server offers. A client id is not a secret. */
+export const authProviders = z.object({
+  password: z.boolean(),
+  google: z.boolean(),
+  googleClientId: z.string().nullable(),
+});
 export type Role = z.infer<typeof roleSchema>;
 
 export const loginResponse = z.object({

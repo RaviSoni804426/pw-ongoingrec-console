@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/auth';
+import { GoogleSignIn } from '@/components/google-sign-in';
 
 export default function LoginPage() {
   const { login, user, ready } = useAuth();
@@ -109,9 +110,9 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-xs text-muted-foreground">
-            PW SSO replaces this sign-in in Cut B.
-          </p>
+          <div className="mt-6">
+            <GoogleSignIn onError={setError} />
+          </div>
         </CardContent>
       </Card>
     </main>

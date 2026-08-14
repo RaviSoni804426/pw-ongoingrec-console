@@ -9,6 +9,7 @@ interface AuthState {
   user: Me | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: Role[]) => boolean;
 }
@@ -39,6 +40,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(me);
   }, []);
 
+  /**
+   * Exchanges a Google ID token for a console session.
+   *
+   * The token is only ever posted to our own API — the domain rule and every
+   * other check happen there, on a signature-verified token. Nothing about
+   * who may sign in is decided in this file.
+   */
+  const loginWithGoogle = useCallback(async (idToken: string) => {
+    const result = await apiFetch('/auth/google', loginResponse, {
+      method: 'POST',
+      body: { idToken },
+      anonymous: true,
+    });
+
+    tokenStore.set(result.accessToken);
+    const me: Me = { ...result.user, teamId: null };
+    userStore.set(me);
+    setUser(me);
+  }, []);
+
   const logout = useCallback(() => {
     tokenStore.clear();
     setUser(null);
@@ -51,8 +72,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const value = useMemo<AuthState>(
-    () => ({ user, ready, login, logout, hasRole }),
-    [user, ready, login, logout, hasRole],
+    () => ({ user, ready, login, loginWithGoogle, logout, hasRole }),
+    [user, ready, login, loginWithGoogle, logout, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
