@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/ui/spinner';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, gapCauseLabel } from '@/lib/format';
 import {
   useConversationAudits,
   useConversation,
@@ -90,14 +90,24 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const tz = refTimezone(data.centreId);
   const counsellorId = refId(data.counsellorUserId);
 
-  // A conversation stitched across a 30-minute roll gets a marker at each seam.
-  const markers: SegmentMarker[] = data.segmentIds.slice(1).map((_, index) => {
-    const start = new Date(data.startUtc).getTime();
-    const boundary = new Date(start);
-    boundary.setUTCMinutes(boundary.getUTCMinutes() < 30 ? 30 : 60, 0, 0);
-    const atSec = (boundary.getTime() + index * 1800_000 - start) / 1000;
-    return { atSec, label: `Segment ${index + 2}` };
-  });
+  // Two kinds of mark, drawn differently because they mean opposite things.
+  // A seam is a join in a continuous recording; a gap is audio that was never
+  // captured, and a reviewer must not read missing minutes as an edit.
+  const markers: SegmentMarker[] = [
+    ...data.segmentIds.slice(1).map((_, index) => {
+      const start = new Date(data.startUtc).getTime();
+      const boundary = new Date(start);
+      boundary.setUTCMinutes(boundary.getUTCMinutes() < 30 ? 30 : 60, 0, 0);
+      const atSec = (boundary.getTime() + index * 1800_000 - start) / 1000;
+      return { atSec, label: `Segment ${index + 2}`, kind: 'seam' as const };
+    }),
+    ...data.gaps.map((gap) => ({
+      atSec: gap.atSec,
+      durationSec: gap.durationSec,
+      kind: 'gap' as const,
+      label: `${gapCauseLabel[gap.cause] ?? gap.cause} — ${formatDuration(gap.durationSec)} not recorded`,
+    })),
+  ];
 
   return (
     <>

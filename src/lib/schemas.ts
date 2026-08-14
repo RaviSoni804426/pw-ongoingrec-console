@@ -168,6 +168,11 @@ export const conversation = z.object({
   segmentIds: z.array(z.union([z.string(), z.object({ _id: z.string() }).passthrough()])).default([]),
   state: z.string(),
   crmLink: crmLink.default({ status: 'UNMATCHED' }),
+
+  /** Capture gaps overlapping this recording, as offsets from its start. */
+  gaps: z
+    .array(z.object({ cause: z.string(), atSec: z.number(), durationSec: z.number() }))
+    .default([]),
   partial: z.boolean().optional(),
   audioKey: z.string().optional(),
   waveformKey: z.string().optional(),

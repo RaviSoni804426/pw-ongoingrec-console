@@ -8,7 +8,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { formatClock } from '@/lib/format';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+/** J/K/L scrub in the coarse jumps a reviewer uses to move through a conversation. */
 const SKIP_SECONDS = 10;
+
+/** Arrows are for landing on a word after a scrub has got you close. */
+const FINE_SECONDS = 2;
 
 /**
  * What a parent can do to the player.
@@ -26,6 +31,16 @@ export interface SegmentMarker {
   /** Offset from the conversation start, in seconds. */
   atSec: number;
   label: string;
+
+  /**
+   * A capture gap rather than a segment seam.
+   *
+   * Drawn differently and with width, because the two mean opposite things: a
+   * seam is a join in a continuous recording, a gap is missing audio. A jump in
+   * playback has to be visibly a gap and not an edit.
+   */
+  kind?: 'seam' | 'gap';
+  durationSec?: number;
 }
 
 /**
@@ -137,11 +152,11 @@ export const ConversationPlayer = forwardRef<
           break;
         case 'ArrowLeft':
           event.preventDefault();
-          skip(-SKIP_SECONDS);
+          skip(-FINE_SECONDS);
           break;
         case 'ArrowRight':
           event.preventDefault();
-          skip(SKIP_SECONDS);
+          skip(FINE_SECONDS);
           break;
         case 'j':
           skip(-SKIP_SECONDS);
@@ -168,16 +183,32 @@ export const ConversationPlayer = forwardRef<
       <div className="relative">
         <div ref={containerRef} className="w-full" data-testid="waveform" />
 
-        {/* Segment boundaries: a conversation stitched across a :30 roll should
-            make that visible, because audio quality can change at the seam. */}
-        {markers.map((marker) => (
-          <span
-            key={`${marker.atSec}-${marker.label}`}
-            title={marker.label}
-            className="pointer-events-none absolute top-0 h-full w-px bg-destructive/60"
-            style={{ left: `${Math.min(100, (marker.atSec / total) * 100)}%` }}
-          />
-        ))}
+        {/* Segment seams and capture gaps. A seam is a join in a continuous
+            recording; a gap is audio that was never captured. Drawing them the
+            same way would let a reviewer mistake missing minutes for an edit. */}
+        {markers.map((marker) => {
+          const isGap = marker.kind === 'gap';
+          const width = isGap
+            ? Math.max(2, ((marker.durationSec ?? 0) / total) * 100)
+            : undefined;
+
+          return (
+            <span
+              key={`${marker.atSec}-${marker.label}`}
+              title={marker.label}
+              data-testid={isGap ? 'waveform-gap' : 'waveform-seam'}
+              className={`pointer-events-none absolute top-0 h-full ${
+                isGap
+                  ? 'border-x border-destructive bg-destructive/25'
+                  : 'w-px bg-muted-foreground/60'
+              }`}
+              style={{
+                left: `${Math.min(100, (marker.atSec / total) * 100)}%`,
+                ...(width !== undefined ? { width: `${width}%` } : {}),
+              }}
+            />
+          );
+        })}
 
         {!ready && !error ? (
           <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -265,8 +296,8 @@ export const ConversationPlayer = forwardRef<
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Keyboard: <kbd>space</kbd>/<kbd>k</kbd> play-pause · <kbd>←</kbd>/<kbd>j</kbd> back 10s ·{' '}
-        <kbd>→</kbd>/<kbd>l</kbd> forward 10s
+        Keyboard: <kbd>space</kbd>/<kbd>k</kbd> play-pause · <kbd>j</kbd>/<kbd>l</kbd> scrub 10s ·{' '}
+        <kbd>←</kbd>/<kbd>→</kbd> nudge 2s
       </p>
     </div>
   );
