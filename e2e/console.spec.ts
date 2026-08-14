@@ -18,48 +18,49 @@ test.describe('authentication', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test('signs in and lands on fleet health', async ({ page }) => {
+  test('signs in and lands on the centre list', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await expect(page.getByTestId('installation-row').first()).toBeVisible();
-  });
-});
-
-test.describe('fleet health', () => {
-  test('shows agent state, device faults and the installation table', async ({ page }) => {
-    await login(page, ACCOUNTS.admin.email);
-
-    // The seed deliberately leaves one installation UNHEALTHY with a removed
-    // device, so an all-green fleet screen would mean the data is not real.
-    await expect(page.getByTestId('fleet-device-faults')).not.toHaveText('0');
-    await expect(page.getByTestId('installation-row')).not.toHaveCount(0);
-  });
-
-  test('opens installation detail with heartbeats and gaps', async ({ page }) => {
-    await login(page, ACCOUNTS.admin.email);
-    await page.getByTestId('installation-row').first().getByRole('link').first().click();
-
-    await expect(page.getByRole('heading', { name: 'Capture gaps' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Heartbeat timeline' })).toBeVisible();
-  });
-});
-
-test.describe('org explorer and counsellor detail', () => {
-  test('drills centre → counsellor → conversation', async ({ page }) => {
-    await login(page, ACCOUNTS.admin.email);
-
-    await page.getByRole('link', { name: 'Org explorer' }).click();
     await expect(page.getByTestId('centre-node').first()).toBeVisible();
+  });
+});
+
+test.describe('the review flow', () => {
+  test('goes centre → counsellor → recording without leaving the flow', async ({ page }) => {
+    // The whole product, in the order the handoff §6 states it.
+    await login(page, ACCOUNTS.admin.email);
+
+    await expect(page.getByTestId('centre-node').first()).toBeVisible();
+    // Coverage is folded into the centre list rather than having a screen.
+    await expect(page.getByTestId('centre-coverage').first()).toBeVisible();
 
     await page.getByTestId('counsellor-link').first().click();
     await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible();
     await expect(page.getByTestId('counsellor-conversation-link').first()).toBeVisible();
+  });
+
+  test('finds a counsellor by name from the centre list', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+
+    const first = await page.getByTestId('counsellor-link').first().innerText();
+    await page.getByTestId('counsellor-search').fill(first.split('\n')[0]!.trim());
+
+    await expect(page.getByTestId('counsellor-link').first()).toBeVisible();
+  });
+
+  test('does not offer the removed dashboards in navigation', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+
+    // These were screens; their numbers now live where the reviewer works.
+    await expect(page.getByRole('link', { name: 'Fleet health' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Coverage' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Audit queue' })).toHaveCount(0);
   });
 });
 
 test.describe('conversations', () => {
   test('lists conversations and paginates', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
 
     await expect(page.getByTestId('conversation-row').first()).toBeVisible();
 
@@ -73,7 +74,7 @@ test.describe('conversations', () => {
 
   test('streams audio and seeks with the player', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
     await page.getByTestId('conversation-link').first().click();
 
     // Playback is opt-in because requesting the URL is the logged access event.
@@ -89,7 +90,7 @@ test.describe('conversations', () => {
 
   test('download requires a typed reason', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
     await page.getByTestId('conversation-link').first().click();
 
     const submit = page.getByTestId('download-submit');
@@ -103,31 +104,8 @@ test.describe('conversations', () => {
   });
 });
 
-test.describe('coverage', () => {
-  test('renders the centre × day grid and drills to a counsellor', async ({ page }) => {
-    await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Coverage' }).click();
-
-    await expect(page.getByRole('heading', { name: 'Coverage' })).toBeVisible();
-    // Cut A ships a mock CRM, so the screen must say so rather than presenting
-    // a structurally-zero coverage number as a real one.
-    await expect(page.getByText('CRM linkage is not connected in this build.')).toBeVisible();
-
-    const drilldown = page.getByTestId('coverage-drilldown').first();
-    if (await drilldown.count()) {
-      await drilldown.click();
-      await expect(page.getByRole('heading', { name: '30-day coverage trend' })).toBeVisible();
-    }
-  });
-});
-
 test.describe('RBAC', () => {
-  test('a MANAGER cannot see the compliance surface', async ({ page }) => {
-    await login(page, ACCOUNTS.manager.email);
-    await expect(page.getByRole('link', { name: 'Compliance' })).toHaveCount(0);
-  });
-
-  test('a MANAGER is refused another team’s conversation by direct URL', async ({ page, request }) => {
+  test('a centre-scoped reviewer is refused another centre’s conversation by direct URL', async ({ page, request }) => {
     // Find a conversation belonging to a counsellor outside the manager's team,
     // using the admin account to look it up.
     const adminLogin = await request.post(`${apiBase}/auth/login`, {
@@ -181,7 +159,7 @@ test.describe('compliance', () => {
   test('playback writes an access-log row', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
 
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
     await page.getByTestId('conversation-link').first().click();
     await page.getByTestId('start-playback').click();
     await expect(page.getByTestId('conversation-player')).toBeVisible();
@@ -208,7 +186,7 @@ test.describe('enrollment', () => {
 test.describe('transcript', () => {
   test('renders turns, marks provisional speakers, and syncs with the player', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
     // A different row from the one the speaker-correction test confirms, so
     // neither test depends on the other having run — or not having run.
     await page.getByTestId('conversation-link').nth(1).click();
@@ -237,7 +215,7 @@ test.describe('transcript', () => {
 
   test('an auditor can confirm the counsellor in one click', async ({ page }) => {
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
     await page.getByTestId('conversation-link').nth(2).click();
 
     await expect(page.getByTestId('speaker-control')).toBeVisible();
@@ -268,7 +246,7 @@ test.describe('transcript', () => {
     // The seed withholds every fifth conversation from auto-audit, so at least
     // one conversation list page must surface the closed gate.
     await login(page, ACCOUNTS.admin.email);
-    await page.getByRole('link', { name: 'Conversations' }).click();
+    await page.goto('/conversations');
 
     const links = page.getByTestId('conversation-link');
     // count() does not auto-wait the way click() does, so without this it reads

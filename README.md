@@ -1,11 +1,18 @@
 # pw-ongoingrec-console
 
-Admin web console for **PW OngoingRec — Cut A**. Next.js 15 (App Router),
-TypeScript strict, Tailwind, TanStack Query, wavesurfer.js, zod.
+Review console for **PW OngoingRec**. Next.js 15 (App Router), TypeScript
+strict, Tailwind, TanStack Query, wavesurfer.js, zod.
 
-The single most important thing this console does in Cut A is **make bad
-coverage obvious** — if a counsellor is not being recorded, that has to be
-visible without anyone going looking for it.
+This is a review tool for **one authorised senior person**, not a multi-role QA
+platform (scope decision, 14 August 2026). The whole flow is six steps:
+
+```
+Login → Select Centre → Select Counsellor → View Recordings
+      → Play / Download → View Counsellor Summary
+```
+
+Two screens are the product — the **counsellor summary** and the **recording
+review**. Everything else is navigation, and is deliberately thin.
 
 ---
 
@@ -13,16 +20,52 @@ visible without anyone going looking for it.
 
 | Route | Screen | What it answers |
 |---|---|---|
-| `/login` | Sign in | — (PW SSO replaces this in Cut B) |
-| `/` | Fleet health | Which agents are alive, faulted or backlogged |
-| `/installations/[id]` | Installation detail | Heartbeat timeline, capture gaps, device history, commands |
-| `/coverage` | Coverage | Centre × day RAG grid, per-counsellor rows, gap causes, unknown-gap worklist |
-| `/centres` | Org explorer | Centre → team → counsellor, scoped to your role |
-| `/counsellors/[id]` | Counsellor detail | Date-grouped conversations, 30-day coverage trend, gap markers |
-| `/conversations` | Conversation list | Server-paginated, filterable |
-| `/conversations/[id]` | Player | Waveform, 0.5–2× transport, ±10s, keyboard shortcuts, segment markers, reason-gated download |
+| `/login` | Sign in | — (PW SSO is a later item) |
+| `/` | Centres | Which centre, which counsellor — with coverage per centre and agent state per person |
+| `/counsellors/[id]` | **Counsellor summary** | How is this person doing: scores over time, weakest criteria, flags, coverage and its gap causes, date-grouped recordings |
+| `/conversations/[id]` | **Recording review** | Waveform and transport, transcript synced to playback, AI scorecard with jump-to-evidence, flag rail, reason-gated download |
+| `/conversations` | Recording search | Kept as a route, deliberately not in the navigation |
 | `/enroll` | Enrollment | Create a counsellor, mint a one-time provisioning token |
 | `/compliance` | Compliance | Access log with CSV export, legal holds, purge log |
+
+### What was removed, and where its numbers went
+
+The fleet-health, coverage and installation-detail screens were removed. None of
+what they measured was dropped — it moved to where the reviewer will actually
+see it:
+
+- **Coverage per centre** is on the centre list. It is the only control that
+  detects a counsellor disabling their microphone, so it is not optional; it
+  just did not deserve a screen.
+- **Coverage per counsellor**, with each gap's cause named, is on the counsellor
+  summary.
+- **Agent state** is a badge next to each counsellor. The reviewer's real
+  question is never "is that laptop healthy" — it is "why are there no
+  recordings from this person", and a dead agent is the answer.
+
+---
+
+## The AI score is advisory
+
+The score is a proposal. The reviewer can override any criterion, and **that
+override is the record**.
+
+With no counsellor login and no dispute route, the reviewer is the only human in
+the loop. BR-28 — no automated adverse action — is therefore not softened by the
+simpler scope; it is carried entirely by that one person's judgement. Nothing in
+this console takes an action off the back of a score.
+
+### Phase 2, deliberately deferred
+
+Counsellors cannot see their own scores, and there is no dispute route. This is
+a reasonable MVP call but it is a deferral with a cost, not a free
+simplification: BRD §16 argues that counsellors seeing their own scores is what
+makes the system read as coaching rather than surveillance. It is recorded here
+so it does not quietly disappear.
+
+Also deferred with it: the audit queue and assignment, the sampling engine,
+auditor calibration, and coaching plans. All of them assume a second reviewer or
+a counsellor logging in, and neither exists yet.
 
 ---
 
@@ -155,6 +198,21 @@ gap-cause attribution beneath it *are* real.
 `none` (grey) is a distinct RAG band from `bad` (red): no CRM walk-ins logged
 means there was nothing to cover, which is a data gap, not a recording failure.
 Painting it red would train people to ignore red.
+
+---
+
+## One role
+
+There is one console role, `ADMIN`. The RBAC *mechanism* is untouched —
+`scoped-repository.ts` and `scope.service.ts` still narrow every query by centre
+and counsellor, and an account carrying `scopeCentreIds` is restricted to those
+centres. Only the role set collapsed.
+
+That is deliberate: ripping out tested authorisation code to remove a dropdown
+would be a bad trade, and the second role will arrive eventually. The seed
+creates one unrestricted account and one restricted to a single centre, so the
+filter every query depends on is exercised by a real login rather than only by
+its unit tests.
 
 ---
 

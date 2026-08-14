@@ -9,6 +9,8 @@ import {
   type SegmentMarker,
 } from '@/components/conversation-player';
 import { TranscriptPanel } from '@/components/transcript-panel';
+import { AuditScorecard } from '@/components/audit-scorecard';
+import { FlagRail } from '@/components/flag-rail';
 import { PageHeader } from '@/components/page-header';
 import { Timestamp } from '@/components/timestamp';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/ui/spinner';
 import { formatDuration } from '@/lib/format';
 import {
+  useConversationAudits,
   useConversation,
   useDownload,
   useStreamUrl,
@@ -31,6 +34,15 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const { id } = use(params);
 
   const conversation = useConversation(id);
+
+  // The review screen finds its own audit rather than being handed one: there
+  // is no queue to arrive from, and a reviewer opens a recording directly from
+  // a counsellor's list (handoff §6.1).
+  const auditQuery = useConversationAudits(id);
+
+  // The human audit is the record; the AI one is advisory. Where a person has
+  // not yet recorded a judgement, the AI audit is what they review and adjust.
+  const auditId = auditQuery.data?.human?._id ?? auditQuery.data?.ai?._id ?? '';
   // Playback is opt-in: fetching the URL is the logged access event, so nothing
   // is requested until someone actually asks to listen.
   const [listening, setListening] = useState(false);
@@ -133,6 +145,32 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
 
+          {auditId ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Compliance flags</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FlagRail
+                    auditId={auditId}
+                    flags={auditQuery.data?.flags ?? []}
+                    onSeek={seekTo}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Scorecard</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AuditScorecard auditId={auditId} onSeek={seekTo} />
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Transcript</CardTitle>
@@ -202,13 +240,11 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
               <Row label="Duration">{formatDuration(data.durationSec)}</Row>
               <Row label="Speech">{formatDuration(data.speechDurationSec)}</Row>
               <Row label="Segments">{data.segmentIds.length}</Row>
+              {/* Plain text now that the installation screen is gone. The id
+                  still matters when correlating with a laptop, but it is not a
+                  place the reviewer needs to navigate to. */}
               <Row label="Installation">
-                <Link
-                  href={`/installations/${data.installationId}`}
-                  className="font-mono text-xs underline-offset-4 hover:underline"
-                >
-                  {data.installationId}
-                </Link>
+                <span className="font-mono text-xs">{data.installationId}</span>
               </Row>
               {counsellorId ? (
                 <Row label="Counsellor">

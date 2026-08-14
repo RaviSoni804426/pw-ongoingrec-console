@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
+import type { CriterionScore } from './schemas';
 import {
   accessLogList,
   conversation,
@@ -10,7 +11,14 @@ import {
   enrollTokenResponse,
   fleetSummary,
   installationDetail,
+  audit,
+  auditDetail,
+  auditList,
+  conversationAudits,
+  counsellorHistory,
+  flag,
   installationList,
+  rubric,
   speakerTagResult,
   transcriptResponse,
   legalHold,
@@ -264,6 +272,114 @@ export const useSetSpeakerTag = (conversationId: string) => {
       // The conversation's talk ratio changes with the tag, so the detail
       // header has to be refetched too or it will contradict the transcript.
       void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+    },
+  });
+};
+
+// ── audits (Cut B) ──────────────────────────────────────────────────────────
+
+export const useAuditQueue = (params: {
+  state?: string;
+  assigned?: 'me' | 'unassigned' | 'any';
+  flagged?: boolean;
+  page?: number;
+  limit?: number;
+}) =>
+  useQuery({
+    queryKey: ['audits', params],
+    queryFn: () => apiFetch('/audits', auditList, { query: { ...params } }),
+  });
+
+export const useAudit = (id: string) =>
+  useQuery({
+    queryKey: ['audit', id],
+    queryFn: () => apiFetch(`/audits/${id}`, auditDetail),
+    enabled: Boolean(id),
+  });
+
+/** The audits and flags for one conversation — how the review screen finds them. */
+export const useConversationAudits = (conversationId: string) =>
+  useQuery({
+    queryKey: ['conversation', conversationId, 'audits'],
+    queryFn: () => apiFetch(`/audits/for-conversation/${conversationId}`, conversationAudits),
+    enabled: Boolean(conversationId),
+  });
+
+export const useCounsellorHistory = (counsellorUserId: string) =>
+  useQuery({
+    queryKey: ['counsellor', counsellorUserId, 'history'],
+    queryFn: () => apiFetch(`/audits/history/${counsellorUserId}`, counsellorHistory),
+    enabled: Boolean(counsellorUserId),
+  });
+
+export const usePublishedRubric = (name = 'counselling-quality') =>
+  useQuery({
+    queryKey: ['rubric', 'published', name],
+    // The rubric in force changes rarely and every scorecard needs it, so it is
+    // cached for the session rather than refetched per audit.
+    staleTime: 10 * 60_000,
+    queryFn: () => apiFetch(`/rubrics/published/${name}`, rubric.nullable()),
+  });
+
+export const useClaimAudit = (id: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiFetch(`/audits/${id}/claim`, audit, { method: 'POST' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audit', id] });
+      void queryClient.invalidateQueries({ queryKey: ['audits'] });
+    },
+  });
+};
+
+export const useReleaseAudit = (id: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiFetch(`/audits/${id}/release`, audit, { method: 'POST' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audits'] });
+    },
+  });
+};
+
+export interface AuditSubmission {
+  criterionScores: CriterionScore[];
+  timeSpentSec?: number;
+}
+
+/** Autosave. Nothing is scored or locked by this. */
+export const useSaveAuditDraft = (id: string) =>
+  useMutation({
+    mutationFn: (body: AuditSubmission) =>
+      apiFetch(`/audits/${id}`, audit, { method: 'PATCH', body }),
+  });
+
+export const useSubmitAudit = (id: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: AuditSubmission) =>
+      apiFetch(`/audits/${id}/submit`, audit, { method: 'POST', body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audit', id] });
+      void queryClient.invalidateQueries({ queryKey: ['audits'] });
+    },
+  });
+};
+
+export const useReviewFlag = (auditId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { flagId: string; decision: string; note?: string; actionTaken?: string }) =>
+      apiFetch(`/audits/flags/${body.flagId}/review`, flag, {
+        method: 'POST',
+        body: { decision: body.decision, note: body.note, actionTaken: body.actionTaken },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audit', auditId] });
     },
   });
 };

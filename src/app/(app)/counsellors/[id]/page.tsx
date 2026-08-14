@@ -7,8 +7,9 @@ import { Timestamp } from '@/components/timestamp';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/ui/spinner';
-import { formatDuration, gapCauseLabel, ragBand, ragClass } from '@/lib/format';
-import { useConversations, useCounsellor, useCoverageTrend } from '@/lib/queries';
+import { formatDuration, formatRelative, gapCauseLabel, ragBand, ragClass } from '@/lib/format';
+import { useConversations, useCounsellor, useCoverageTrend, useOrgTree } from '@/lib/queries';
+import { CounsellorScores } from '@/components/counsellor-scores';
 import { refTimezone, type Conversation } from '@/lib/schemas';
 
 export default function CounsellorDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,20 @@ export default function CounsellorDetailPage({ params }: { params: Promise<{ id:
   const counsellor = useCounsellor(id);
   const conversations = useConversations({ counsellorId: id, limit: 100 });
   const trend = useCoverageTrend({ counsellorId: id, days: 30 });
+
+  // The org tree already carries agent state per counsellor, so the identity
+  // strip costs no extra request.
+  const tree = useOrgTree();
+  const agent = useMemo(() => {
+    for (const centre of tree.data ?? []) {
+      const found = [
+        ...centre.teams.flatMap((team) => team.counsellors),
+        ...centre.unassignedCounsellors,
+      ].find((c) => c._id === id);
+      if (found) return { counsellor: found, centreName: centre.name };
+    }
+    return null;
+  }, [tree.data, id]);
 
   // Date-grouped list (§6.2): a counsellor's day is the unit a manager thinks in.
   const byDay = useMemo(() => {
@@ -42,10 +57,30 @@ export default function CounsellorDetailPage({ params }: { params: Promise<{ id:
     <>
       <PageHeader
         title={counsellor.data?.name ?? 'Counsellor'}
-        description={`${counsellor.data?.employeeId ?? '—'} · ${counsellor.data?.email ?? ''}`}
+        description={[
+          counsellor.data?.employeeId ?? '—',
+          agent?.centreName,
+          agent?.counsellor.agentState && agent.counsellor.agentState !== 'ACTIVE'
+            ? `agent ${agent.counsellor.agentState.toLowerCase()}`
+            : null,
+          agent?.counsellor.lastSegmentAt
+            ? `last recording ${formatRelative(agent.counsellor.lastSegmentAt)}`
+            : 'no recordings yet',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       />
 
       <div className="space-y-6 p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Scores and flags</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CounsellorScores counsellorUserId={id} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>30-day coverage trend</CardTitle>

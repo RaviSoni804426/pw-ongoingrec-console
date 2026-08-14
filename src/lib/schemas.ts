@@ -13,13 +13,12 @@ import { z } from 'zod';
 export const envelope = <T extends z.ZodTypeAny>(data: T) =>
   z.object({ success: z.boolean(), message: z.string().optional(), data });
 
-export const roleSchema = z.enum([
-  'SUPER_ADMIN',
-  'COMPLIANCE_OFFICER',
-  'CENTRE_HEAD',
-  'MANAGER',
-  'IT_ADMIN',
-]);
+/**
+ * One console role (handoff §6). The mechanism behind it is unchanged — the
+ * backend still scopes every query — but there is one authorised reviewer, so
+ * there is one role.
+ */
+export const roleSchema = z.enum(['ADMIN']);
 export type Role = z.infer<typeof roleSchema>;
 
 export const loginResponse = z.object({
@@ -233,6 +232,14 @@ export const counsellor = z.object({
   centreId: z.string().optional(),
   teamId: z.string().optional(),
   status: z.string().optional(),
+
+  // Carried on the org tree since the fleet-health screen went. The reviewer's
+  // question is "why are there no recordings from this person", and a dead
+  // agent is the answer.
+  agentState: z.string().nullable().optional(),
+  lastHeartbeatAt: z.string().nullable().optional(),
+  lastSegmentAt: z.string().nullable().optional(),
+  installationId: z.string().nullable().optional(),
 });
 export type Counsellor = z.infer<typeof counsellor>;
 
@@ -243,8 +250,16 @@ export const team = z.object({
   managerUserId: z.string().optional(),
 });
 
+/** Null pct means nothing has been reconciled yet — not zero coverage. */
+export const centreCoverage = z.object({
+  walkIns: z.number(),
+  captured: z.number(),
+  pct: z.number().nullable(),
+});
+
 export const orgTree = z.array(
   centre.extend({
+    coverage: centreCoverage.optional(),
     teams: z.array(team.extend({ counsellors: z.array(counsellor) })),
     unassignedCounsellors: z.array(counsellor),
   }),
@@ -387,3 +402,146 @@ export const speakerTagResult = z.object({
 
 export type Transcript = z.infer<typeof transcript>;
 export type TranscriptTurn = z.infer<typeof transcriptTurn>;
+
+// ── audits (Cut B) ──────────────────────────────────────────────────────────
+
+export const scoreEvidence = z.object({
+  startMs: z.number(),
+  endMs: z.number(),
+  quote: z.string(),
+});
+
+export const criterionScore = z.object({
+  criterionKey: z.string(),
+  score: z.number(),
+  confidence: z.number().optional(),
+  justification: z.string(),
+  evidence: z.array(scoreEvidence).default([]),
+  overriddenFromAi: z.boolean().default(false),
+  aiScore: z.number().optional(),
+  overrideReason: z.string().optional(),
+});
+
+export const audit = z.object({
+  _id: z.string(),
+  conversationId: z.union([z.string(), z.object({ _id: z.string() }).passthrough()]),
+  counsellorUserId: z.union([z.string(), z.object({ _id: z.string() }).passthrough()]),
+  centreId: z.string().optional(),
+  rubricId: z.string(),
+  rubricVersion: z.number(),
+  type: z.string(),
+  auditorUserId: z.string().optional(),
+  aiModel: z.string().optional(),
+  aiPromptVersion: z.string().optional(),
+  transcriptVersion: z.number().optional(),
+  criterionScores: z.array(criterionScore).default([]),
+  totalScore: z.number().optional(),
+  maxScore: z.number().optional(),
+  normalisedScore: z.number().optional(),
+  band: z.string().optional(),
+  state: z.string(),
+  stateReason: z.string().optional(),
+  version: z.number(),
+  supersedesAuditId: z.string().optional(),
+  submittedAt: z.string().optional(),
+  lockedAt: z.string().optional(),
+  timeSpentSec: z.number().optional(),
+  dueAt: z.string().optional(),
+  claimedByUserId: z.string().optional(),
+  claimedAt: z.string().optional(),
+  samplingReason: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+export const flag = z.object({
+  _id: z.string(),
+  conversationId: z.string(),
+  auditId: z.string().optional(),
+  ruleKey: z.string(),
+  category: z.string(),
+  severity: z.string(),
+  startMs: z.number().optional(),
+  endMs: z.number().optional(),
+  quote: z.string().optional(),
+  aiConfidence: z.number().optional(),
+  state: z.string(),
+  reviewNote: z.string().optional(),
+  actionTaken: z.string().optional(),
+});
+
+export const auditList = z.object({
+  items: z.array(audit),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+});
+
+export const auditDetail = z.object({
+  audit,
+  flags: z.array(flag).default([]),
+});
+
+export const conversationAudits = z.object({
+  ai: audit.nullable(),
+  human: audit.nullable(),
+  history: z.array(audit).default([]),
+  flags: z.array(flag).default([]),
+});
+
+export const counsellorHistory = z.object({
+  audits: z.array(audit).default([]),
+  flags: z.array(flag).default([]),
+});
+
+// ── rubrics (Cut B) ─────────────────────────────────────────────────────────
+
+export const rubricCriterion = z.object({
+  key: z.string(),
+  label: z.string(),
+  weight: z.number(),
+  aiScoreable: z.boolean().default(true),
+  anchors: z.object({ poor: z.string(), meets: z.string(), excellent: z.string() }),
+  guidance: z.string().optional(),
+});
+
+export const rubric = z.object({
+  _id: z.string(),
+  name: z.string(),
+  version: z.number(),
+  state: z.string(),
+  description: z.string().optional(),
+  sections: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      weight: z.number(),
+      criteria: z.array(rubricCriterion).default([]),
+    }),
+  ),
+  flagRules: z
+    .array(
+      z.object({
+        key: z.string(),
+        category: z.string(),
+        severity: z.string(),
+        description: z.string(),
+      }),
+    )
+    .default([]),
+  bands: z
+    .array(
+      z.object({
+        band: z.string(),
+        minScore: z.number(),
+        maxScore: z.number(),
+        action: z.string(),
+      }),
+    )
+    .default([]),
+});
+
+export type Audit = z.infer<typeof audit>;
+export type AuditFlag = z.infer<typeof flag>;
+export type Rubric = z.infer<typeof rubric>;
+export type RubricCriterion = z.infer<typeof rubricCriterion>;
+export type CriterionScore = z.infer<typeof criterionScore>;

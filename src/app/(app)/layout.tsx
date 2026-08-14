@@ -5,11 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
-  Activity,
   Building2,
-  CalendarCheck,
   LogOut,
-  MessagesSquare,
   ShieldCheck,
   UserPlus,
 } from 'lucide-react';
@@ -27,23 +24,18 @@ interface NavItem {
   roles?: Role[];
 }
 
+/**
+ * The whole flow is: centre → counsellor → recording. Everything else is a
+ * supporting surface, so the navigation carries four items rather than seven.
+ *
+ * `/conversations` is deliberately absent: it is kept as a route for search but
+ * demoted out of primary navigation (handoff §6.1), because a global list of
+ * every recording is not a step anybody takes.
+ */
 const NAV: NavItem[] = [
-  { href: '/', label: 'Fleet health', icon: Activity },
-  { href: '/coverage', label: 'Coverage', icon: CalendarCheck },
-  { href: '/centres', label: 'Org explorer', icon: Building2 },
-  { href: '/conversations', label: 'Conversations', icon: MessagesSquare },
-  {
-    href: '/enroll',
-    label: 'Enrollment',
-    icon: UserPlus,
-    roles: ['SUPER_ADMIN', 'IT_ADMIN', 'CENTRE_HEAD'],
-  },
-  {
-    href: '/compliance',
-    label: 'Compliance',
-    icon: ShieldCheck,
-    roles: ['SUPER_ADMIN', 'COMPLIANCE_OFFICER'],
-  },
+  { href: '/', label: 'Centres', icon: Building2 },
+  { href: '/enroll', label: 'Enrollment', icon: UserPlus },
+  { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
