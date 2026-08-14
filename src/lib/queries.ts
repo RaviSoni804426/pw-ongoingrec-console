@@ -16,6 +16,7 @@ import {
   auditList,
   conversationAudits,
   counsellorHistory,
+  adminActivity,
   crmInteractions,
   crmSnapshot,
   flagSummary,
@@ -359,6 +360,12 @@ export const useFlagWorklist = (params: {
   useQuery({
     queryKey: ['flags', 'worklist', params],
     queryFn: () => apiFetch('/audits/flags/worklist', flagWorklist, { query: { ...params } }),
+  });
+
+export const useAdminActivity = (params: { action?: string; from?: string; to?: string }) =>
+  useQuery({
+    queryKey: ['admin', 'activity', params],
+    queryFn: () => apiFetch('/admin/activity', adminActivity, { query: { ...params, limit: 200 } }),
   });
 
 export const useFlagSummary = () =>

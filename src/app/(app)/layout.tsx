@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import {
   Building2,
   Search as SearchIcon,
+  Settings,
   Table2,
   LogOut,
   ShieldCheck,
@@ -38,8 +39,9 @@ const NAV: NavItem[] = [
   { href: '/', label: 'Centres', icon: Building2 },
   { href: '/crm', label: 'CRM', icon: Table2 },
   { href: '/search', label: 'Search', icon: SearchIcon },
-  { href: '/enroll', label: 'Enrollment', icon: UserPlus },
-  { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
+  { href: '/enroll', label: 'Enrollment', icon: UserPlus, roles: ['ADMIN'] },
+  { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['ADMIN'] },
+  { href: '/admin', label: 'Admin', icon: Settings, roles: ['ADMIN'] },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

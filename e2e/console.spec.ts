@@ -347,3 +347,17 @@ test.describe('compliance flags', () => {
     await expect(page.getByTestId('flag-filter-red')).toHaveAttribute('aria-selected', 'true');
   });
 });
+
+test.describe('admin', () => {
+  test('shows who changed what, and offers a CSV export', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Admin' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Activity log' })).toBeVisible();
+    await expect(page.getByTestId('admin-export')).toBeVisible();
+
+    // The filter exists whether or not anything has been recorded yet — an
+    // empty log is a legitimate state, not a broken screen.
+    await expect(page.getByTestId('admin-action-filter')).toBeVisible();
+  });
+});

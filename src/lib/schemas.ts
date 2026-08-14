@@ -18,7 +18,11 @@ export const envelope = <T extends z.ZodTypeAny>(data: T) =>
  * backend still scopes every query — but there is one authorised reviewer, so
  * there is one role.
  */
-export const roleSchema = z.enum(['ADMIN']);
+/**
+ * Two console roles. ADMIN changes things; REVIEWER reviews recordings and
+ * changes nothing about the system that judges them.
+ */
+export const roleSchema = z.enum(['ADMIN', 'REVIEWER']);
 
 /** Which sign-in methods the server offers. A client id is not a secret. */
 export const authProviders = z.object({
@@ -548,6 +552,26 @@ export const crmSnapshot = z.object({
   connected: z.boolean(),
   fetchedAt: z.string().nullable(),
   rows: z.array(z.record(z.string(), z.string())).default([]),
+});
+
+export const adminActivity = z.object({
+  items: z.array(
+    z.object({
+      _id: z.string(),
+      actorUserId: z.union([z.string(), z.object({ name: z.string().optional() }).passthrough()]),
+      actorEmail: z.string().optional(),
+      actorRoles: z.array(z.string()).default([]),
+      action: z.string(),
+      targetType: z.string().optional(),
+      targetId: z.string().optional(),
+      summary: z.string().optional(),
+      at: z.string(),
+      ip: z.string().optional(),
+    }),
+  ),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
 });
 
 export const flagWorklist = z.object({
