@@ -493,6 +493,28 @@ export const conversationAudits = z.object({
   flags: z.array(flag).default([]),
 });
 
+export const transcriptSearchResult = z.object({
+  query: z.string(),
+  total: z.number(),
+  items: z.array(
+    z.object({
+      conversationId: z.string(),
+      counsellorUserId: z.string().optional(),
+      language: z.string().optional(),
+      hits: z
+        .array(
+          z.object({
+            startMs: z.number(),
+            endMs: z.number(),
+            speakerRole: z.string().optional(),
+            text: z.string(),
+          }),
+        )
+        .default([]),
+    }),
+  ),
+});
+
 export const counsellorHistory = z.object({
   audits: z.array(audit).default([]),
   flags: z.array(flag).default([]),

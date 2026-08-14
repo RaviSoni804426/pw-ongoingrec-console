@@ -271,3 +271,40 @@ test.describe('transcript', () => {
     );
   });
 });
+
+test.describe('transcript search', () => {
+  test('finds a Devanagari term from an English query', async ({ page }) => {
+    // The seeded transcripts render NEET in Devanagari, as the real engine
+    // does. A reviewer typing the English term must still find them, or the
+    // results are partial in a way nothing on screen would reveal.
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Search' }).click();
+
+    await page.getByTestId('transcript-search-input').fill('NEET');
+    await page.getByTestId('transcript-search-submit').click();
+
+    await expect(page.getByTestId('search-result').first()).toBeVisible();
+    await expect(page.getByTestId('search-count')).toContainText('mention this');
+  });
+
+  test('shows the matched line in the script it was spoken in', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Search' }).click();
+
+    await page.getByTestId('transcript-search-input').fill('NEET');
+    await page.getByTestId('transcript-search-submit').click();
+
+    // The evidence is the original text, not a normalised copy of it.
+    await expect(page.getByTestId('search-result').first()).toContainText('नीत');
+  });
+
+  test('says plainly when nothing matched', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Search' }).click();
+
+    await page.getByTestId('transcript-search-input').fill('zzzznotawordzzzz');
+    await page.getByTestId('transcript-search-submit').click();
+
+    await expect(page.getByText('Nothing matched')).toBeVisible();
+  });
+});

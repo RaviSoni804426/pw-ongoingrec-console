@@ -16,6 +16,7 @@ import {
   auditList,
   conversationAudits,
   counsellorHistory,
+  transcriptSearchResult,
   flag,
   installationList,
   rubric,
@@ -303,6 +304,15 @@ export const useConversationAudits = (conversationId: string) =>
     queryKey: ['conversation', conversationId, 'audits'],
     queryFn: () => apiFetch(`/audits/for-conversation/${conversationId}`, conversationAudits),
     enabled: Boolean(conversationId),
+  });
+
+export const useTranscriptSearch = (q: string) =>
+  useQuery({
+    queryKey: ['transcripts', 'search', q],
+    // Every search is logged against the account, so it fires on submit rather
+    // than on every keystroke.
+    enabled: q.trim().length > 1,
+    queryFn: () => apiFetch('/transcripts/search', transcriptSearchResult, { query: { q } }),
   });
 
 export const useCounsellorHistory = (counsellorUserId: string) =>

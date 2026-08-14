@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
   Building2,
+  Search as SearchIcon,
   LogOut,
   ShieldCheck,
   UserPlus,
@@ -34,6 +35,7 @@ interface NavItem {
  */
 const NAV: NavItem[] = [
   { href: '/', label: 'Centres', icon: Building2 },
+  { href: '/search', label: 'Search', icon: SearchIcon },
   { href: '/enroll', label: 'Enrollment', icon: UserPlus },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
 ];
