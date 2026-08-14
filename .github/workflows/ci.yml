@@ -6,6 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+  # The end-to-end job runs against the backend's published :main image, so a
+  # console commit that depends on a new backend feature fails until that image
+  # exists. The backend fires this once it has published, which closes the race
+  # rather than leaving it to be re-run by hand — it cost three runs to learn
+  # that lesson.
+  repository_dispatch:
+    types: [backend-image-published]
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
