@@ -132,6 +132,10 @@ jobs:
           CRM_ADAPTER=mock
           DISABLE_SCHEDULED_JOBS=true
           SEED_PASSWORD=ChangeMe-Local-Dev-1
+          # The image runs as production, where the API refuses to start
+          # without this rather than allowing every origin. That guard is the
+          # point, so CI sets the value instead of relaxing the rule.
+          CONSOLE_ORIGIN=http://localhost:3001
           ENVFILE
           sed -i 's/^[[:space:]]*//' backend.env
 
