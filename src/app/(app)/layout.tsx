@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import {
   Building2,
   Search as SearchIcon,
+  Table2,
   LogOut,
   ShieldCheck,
   UserPlus,
@@ -35,6 +36,7 @@ interface NavItem {
  */
 const NAV: NavItem[] = [
   { href: '/', label: 'Centres', icon: Building2 },
+  { href: '/crm', label: 'CRM', icon: Table2 },
   { href: '/search', label: 'Search', icon: SearchIcon },
   { href: '/enroll', label: 'Enrollment', icon: UserPlus },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },

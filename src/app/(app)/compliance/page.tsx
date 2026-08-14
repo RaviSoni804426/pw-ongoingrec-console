@@ -8,6 +8,7 @@ import { Timestamp } from '@/components/timestamp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FlagWorklist } from '@/components/flag-worklist';
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/ui/spinner';
 import {
   Table,
@@ -64,10 +65,22 @@ export default function CompliancePage() {
     <>
       <PageHeader
         title="Compliance"
-        description="Who listened to what, what is under legal hold, and what the purge deleted."
+        description="Flagged conversations, who listened to what, what is under legal hold, and what the purge deleted."
       />
 
       <div className="space-y-6 p-6">
+        {/* First, because a Critical flag outranks everything else on this
+            screen: it forces escalation regardless of how the conversation
+            scored, and an access log nobody is looking for can wait. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Compliance flags</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FlagWorklist />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle>Access log</CardTitle>

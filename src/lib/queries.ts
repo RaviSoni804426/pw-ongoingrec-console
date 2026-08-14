@@ -16,6 +16,10 @@ import {
   auditList,
   conversationAudits,
   counsellorHistory,
+  crmInteractions,
+  crmSnapshot,
+  flagSummary,
+  flagWorklist,
   transcriptSearchResult,
   flag,
   installationList,
@@ -305,6 +309,71 @@ export const useConversationAudits = (conversationId: string) =>
     queryFn: () => apiFetch(`/audits/for-conversation/${conversationId}`, conversationAudits),
     enabled: Boolean(conversationId),
   });
+
+export const useCrmInteractions = (params: {
+  minScore?: number;
+  maxScore?: number;
+  sort?: 'score' | 'time';
+  order?: 'asc' | 'desc';
+}) =>
+  useQuery({
+    queryKey: ['crm', 'interactions', params],
+    queryFn: () => apiFetch('/crm/interactions', crmInteractions, { query: { ...params } }),
+  });
+
+export const useCrmSnapshot = () =>
+  useQuery({
+    queryKey: ['crm', 'snapshot'],
+    queryFn: () => apiFetch('/crm', crmSnapshot),
+  });
+
+export const useRefreshCrm = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiFetch('/crm/refresh', z.object({ fetchedAt: z.string().nullable(), rows: z.number() }), {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['crm'] });
+    },
+  });
+};
+
+export const useFlagWorklist = (params: {
+  severity?: string;
+  state?: string;
+  counsellorUserId?: string;
+  from?: string;
+  to?: string;
+}) =>
+  useQuery({
+    queryKey: ['flags', 'worklist', params],
+    queryFn: () => apiFetch('/audits/flags/worklist', flagWorklist, { query: { ...params } }),
+  });
+
+export const useFlagSummary = () =>
+  useQuery({
+    queryKey: ['flags', 'summary'],
+    queryFn: () => apiFetch('/audits/flags/summary', flagSummary),
+  });
+
+/** Resolving from the worklist, where there is no single audit in context. */
+export const useResolveFlag = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { flagId: string; decision: string; note?: string; actionTaken?: string }) =>
+      apiFetch(`/audits/flags/${body.flagId}/review`, flag, {
+        method: 'POST',
+        body: { decision: body.decision, note: body.note, actionTaken: body.actionTaken },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['flags'] });
+    },
+  });
+};
 
 export const useTranscriptSearch = (q: string) =>
   useQuery({

@@ -515,6 +515,56 @@ export const transcriptSearchResult = z.object({
   ),
 });
 
+export const crmInteractions = z.object({
+  total: z.number(),
+  items: z.array(
+    z.object({
+      conversationId: z.string(),
+      startUtc: z.string(),
+      durationSec: z.number(),
+      counsellor: z.union([z.string(), z.object({ _id: z.string() }).passthrough()]).optional(),
+      centre: z.union([z.string(), z.object({ _id: z.string() }).passthrough()]).optional(),
+      crmLink: crmLink.optional(),
+      matched: z.boolean(),
+      score: z.number().nullable(),
+      band: z.string().nullable(),
+      scoreSource: z.string().nullable(),
+      provisional: z.boolean(),
+      criterionScores: z.array(criterionScore).default([]),
+      flagCount: z.number(),
+    }),
+  ),
+});
+
+export const crmSnapshot = z.object({
+  adapter: z.string(),
+  connected: z.boolean(),
+  fetchedAt: z.string().nullable(),
+  rows: z.array(z.record(z.string(), z.string())).default([]),
+});
+
+export const flagWorklist = z.object({
+  items: z.array(
+    flag.extend({
+      counsellorUserId: z.union([z.string(), z.object({ _id: z.string() }).passthrough()]),
+      createdAt: z.string().optional(),
+    }),
+  ),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+});
+
+export const flagSummary = z.object({
+  critical: z.number(),
+  high: z.number(),
+  medium: z.number(),
+  low: z.number(),
+  open: z.number(),
+  resolved: z.number(),
+  total: z.number(),
+});
+
 export const counsellorHistory = z.object({
   audits: z.array(audit).default([]),
   flags: z.array(flag).default([]),

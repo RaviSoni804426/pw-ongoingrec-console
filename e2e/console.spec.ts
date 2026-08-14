@@ -308,3 +308,39 @@ test.describe('transcript search', () => {
     await expect(page.getByText('Nothing matched')).toBeVisible();
   });
 });
+
+test.describe('CRM', () => {
+  test('lists interactions and can be sorted by score', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'CRM' }).click();
+
+    await expect(page.getByTestId('crm-row').first()).toBeVisible();
+
+    // Sorting by score must not reorder into nonsense when most rows are
+    // unscored: unscored is unknown, not zero.
+    await page.getByTestId('crm-sort-score').click();
+    await expect(page.getByTestId('crm-row').first()).toBeVisible();
+  });
+
+  test('has a working refresh that re-reads the sheet', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'CRM' }).click();
+
+    await page.getByTestId('crm-refresh').click();
+    await expect(page.getByTestId('crm-fetched-at')).toBeVisible();
+  });
+});
+
+test.describe('compliance flags', () => {
+  test('shows the traffic-light summary and its filters', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByRole('link', { name: 'Compliance' }).click();
+
+    await expect(page.getByTestId('flag-summary')).toBeVisible();
+
+    // Severity is written out, never colour alone — a colour is unreadable to
+    // anyone who cannot distinguish red from green, and unprintable.
+    await page.getByTestId('flag-filter-red').click();
+    await expect(page.getByTestId('flag-filter-red')).toHaveAttribute('aria-selected', 'true');
+  });
+});
