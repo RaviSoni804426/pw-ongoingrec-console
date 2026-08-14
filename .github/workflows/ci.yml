@@ -14,6 +14,8 @@ jobs:
   lint-and-build:
     name: Lint, typecheck and build
     runs-on: ubuntu-latest
+    # A hung job otherwise burns the six-hour default before anyone notices.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +30,8 @@ jobs:
   e2e:
     name: Playwright (against the real backend image)
     runs-on: ubuntu-latest
+    # A hung job otherwise burns the six-hour default before anyone notices.
+    timeout-minutes: 30
 
     # GITHUB_TOKEN can read packages in the same account, so no cross-repo PAT
     # is needed. See README, "How the end-to-end job reaches the backend".
@@ -223,6 +227,8 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    # A hung job otherwise burns the six-hour default before anyone notices.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
