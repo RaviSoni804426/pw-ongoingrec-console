@@ -393,3 +393,36 @@ test.describe('recording time filter', () => {
     await expect(page.getByTestId('counsellor-conversation-link').first()).toBeVisible();
   });
 });
+
+test.describe('open signup', () => {
+  test('anyone can create an account and land in the console', async ({ page }) => {
+    // Only offered when the server says so, so this also asserts the console
+    // reads that from /auth/providers rather than a flag in the bundle.
+    await page.goto('/login');
+
+    const toggle = page.getByTestId('auth-toggle');
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+
+    const unique = `demo${Date.now()}@pw.live`;
+    await page.getByTestId('signup-name').fill('Demo Reviewer');
+    await page.getByLabel('Email').fill(unique);
+    await page.getByLabel('Password').fill('a-long-enough-password');
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { name: 'Centres' })).toBeVisible();
+  });
+
+  test('says plainly when the email is already taken', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByTestId('auth-toggle').click();
+
+    await page.getByTestId('signup-name').fill('Duplicate');
+    await page.getByLabel('Email').fill(ACCOUNTS.admin.email);
+    await page.getByLabel('Password').fill('a-long-enough-password');
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('login-error')).toContainText(/already exists/i);
+  });
+});

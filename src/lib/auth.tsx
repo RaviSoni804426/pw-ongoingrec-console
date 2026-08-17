@@ -10,6 +10,7 @@ interface AuthState {
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: Role[]) => boolean;
 }
@@ -60,6 +61,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(me);
   }, []);
 
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    const result = await apiFetch('/auth/signup', loginResponse, {
+      method: 'POST',
+      body: { name, email, password },
+      anonymous: true,
+    });
+
+    tokenStore.set(result.accessToken);
+    const me: Me = { ...result.user, teamId: null };
+    userStore.set(me);
+    setUser(me);
+  }, []);
+
   const logout = useCallback(() => {
     tokenStore.clear();
     setUser(null);
@@ -72,8 +86,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const value = useMemo<AuthState>(
-    () => ({ user, ready, login, loginWithGoogle, logout, hasRole }),
-    [user, ready, login, loginWithGoogle, logout, hasRole],
+    () => ({ user, ready, login, loginWithGoogle, signup, logout, hasRole }),
+    [user, ready, login, loginWithGoogle, signup, logout, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

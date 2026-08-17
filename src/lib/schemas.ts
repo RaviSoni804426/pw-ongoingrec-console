@@ -29,6 +29,8 @@ export const authProviders = z.object({
   password: z.boolean(),
   google: z.boolean(),
   googleClientId: z.string().nullable(),
+  /** Whether the server currently lets anyone create an account. */
+  openSignup: z.boolean().default(false),
 });
 export type Role = z.infer<typeof roleSchema>;
 
