@@ -36,3 +36,4 @@ build/
 # wrote it. These negations are load-bearing; do not remove them.
 !src/app/**/coverage/
 !src/app/**/coverage/**
+.vercel
