@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { use, useMemo } from 'react';
+import { use, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Timestamp } from '@/components/timestamp';
 import { Badge } from '@/components/ui/badge';
@@ -10,13 +10,29 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/ui/spinner';
 import { formatDuration, formatRelative, gapCauseLabel, ragBand, ragClass } from '@/lib/format';
 import { useConversations, useCounsellor, useCoverageTrend, useOrgTree } from '@/lib/queries';
 import { CounsellorScores } from '@/components/counsellor-scores';
+import {
+  EMPTY_WINDOW,
+  RecordingFilters,
+  type RecordingWindow,
+} from '@/components/recording-filters';
 import { refTimezone, type Conversation } from '@/lib/schemas';
 
 export default function CounsellorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
   const counsellor = useCounsellor(id);
-  const conversations = useConversations({ counsellorId: id, limit: 100 });
+  const [window, setWindow] = useState<RecordingWindow>(EMPTY_WINDOW);
+
+  const conversations = useConversations({
+    counsellorId: id,
+    limit: 100,
+    // A date input gives a bare day; the API wants an instant, and the end of
+    // the range has to include the whole of that day rather than midnight.
+    from: window.from ? `${window.from}T00:00:00.000Z` : undefined,
+    to: window.to ? `${window.to}T23:59:59.999Z` : undefined,
+    fromTime: window.fromTime || undefined,
+    toTime: window.toTime || undefined,
+  });
   const trend = useCoverageTrend({ counsellorId: id, days: 30 });
 
   // The org tree already carries agent state per counsellor, so the identity
@@ -119,10 +135,22 @@ export default function CounsellorDetailPage({ params }: { params: Promise<{ id:
             <CardTitle>Conversations</CardTitle>
           </CardHeader>
           <CardContent className="px-0">
+            <div className="px-6 pb-4">
+              <RecordingFilters
+                value={window}
+                onChange={setWindow}
+                resultCount={conversations.data?.total}
+              />
+            </div>
+
             {conversations.isPending ? <LoadingBlock /> : null}
             {conversations.isError ? <ErrorBlock error={conversations.error} /> : null}
             {byDay.length === 0 && conversations.data ? (
-              <EmptyBlock>No conversations recorded for this counsellor.</EmptyBlock>
+              <EmptyBlock>
+                {Object.values(window).some(Boolean)
+                  ? 'No recordings match this window. Widen the dates or times, or clear the filter.'
+                  : 'No conversations recorded for this counsellor.'}
+              </EmptyBlock>
             ) : null}
 
             {byDay.map(([day, items]) => {

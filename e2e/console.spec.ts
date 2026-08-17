@@ -361,3 +361,35 @@ test.describe('admin', () => {
     await expect(page.getByTestId('admin-action-filter')).toBeVisible();
   });
 });
+
+test.describe('recording time filter', () => {
+  test('narrows a counsellor’s recordings to a time window', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByTestId('counsellor-link').first().click();
+
+    await expect(page.getByTestId('counsellor-conversation-link').first()).toBeVisible();
+    await expect(page.getByTestId('recording-filters')).toBeVisible();
+
+    // A window with nothing in it must say so, rather than looking like the
+    // counsellor has no recordings at all.
+    await page.getByTestId('filter-from-time').fill('02:00');
+    await page.getByTestId('filter-to-time').fill('04:00');
+    await expect(page.getByText('No recordings match this window')).toBeVisible();
+
+    // And a working-hours window brings them back.
+    await page.getByTestId('filter-preset-09:00').click();
+    await expect(page.getByTestId('counsellor-conversation-link').first()).toBeVisible();
+  });
+
+  test('clears back to the full list', async ({ page }) => {
+    await login(page, ACCOUNTS.admin.email);
+    await page.getByTestId('counsellor-link').first().click();
+
+    await page.getByTestId('filter-from-time').fill('02:00');
+    await page.getByTestId('filter-to-time').fill('04:00');
+    await expect(page.getByText('No recordings match this window')).toBeVisible();
+
+    await page.getByTestId('filter-clear').click();
+    await expect(page.getByTestId('counsellor-conversation-link').first()).toBeVisible();
+  });
+});

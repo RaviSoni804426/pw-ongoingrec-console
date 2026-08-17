@@ -153,6 +153,9 @@ export interface ConversationFilters {
   counsellorId?: string;
   from?: string;
   to?: string;
+  /** Centre-local time of day, "HH:MM". Matches recordings overlapping the window. */
+  fromTime?: string;
+  toTime?: string;
   minDuration?: number;
   crmStatus?: string;
   page?: number;
