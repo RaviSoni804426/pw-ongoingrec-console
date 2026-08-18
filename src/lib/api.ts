@@ -1,8 +1,18 @@
 import { z } from 'zod';
 import { envelope } from './schemas';
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+/**
+ * Where the browser sends API calls.
+ *
+ * Defaults to a path on the console's own origin, which Next rewrites to the
+ * real API server (see next.config.mjs). Same origin means no preflight and no
+ * CORS — the console cannot be broken by an allow-list on the API drifting out
+ * of date, which is a failure that only ever showed up as "Failed to fetch" on
+ * the login form.
+ *
+ * Set NEXT_PUBLIC_API_BASE_URL to an absolute URL to bypass the proxy.
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api/backend';
 
 const TOKEN_KEY = 'ongoingrec.token';
 const USER_KEY = 'ongoingrec.user';
