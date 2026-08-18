@@ -81,7 +81,13 @@ export async function apiFetch<T extends z.ZodTypeAny>(
   schema: T,
   options: RequestOptions = {},
 ): Promise<z.infer<T>> {
-  const url = new URL(`${API_BASE_URL}${path}`);
+  // `new URL` requires an absolute URL. API_BASE_URL is normally a path on this
+  // origin (so requests are same-origin and CORS never applies), so the current
+  // origin is supplied as the base. An absolute API_BASE_URL still works — the
+  // base is ignored when the first argument is already absolute.
+  const origin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+  const url = new URL(`${API_BASE_URL}${path}`, origin);
+
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined && value !== null && value !== '') {
       url.searchParams.set(key, String(value));
